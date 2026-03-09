@@ -1,0 +1,13 @@
+[workspace]
+members = ["crates/lenia-core", "crates/viewer-egui"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+eframe = "0.33.0"
+ndarray = "0.16.1"
+rand = "0.8.5"
+rustfft = "6.4.1"
