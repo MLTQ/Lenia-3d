@@ -40,6 +40,11 @@ cargo test
 cargo fmt
 ```
 
+## CI And Releases
+
+- Every GitHub push builds `viewer-egui` for Linux x86_64 and macOS Apple Silicon and uploads the packaged binaries as workflow artifacts.
+- Pushing a tag also publishes those artifacts as a GitHub Release.
+
 ## Beads Note
 
 `beads` is initialized for this repository. Ongoing architecture work should continue to open, update, close, and sync beads so the project history survives across sessions.
