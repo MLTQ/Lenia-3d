@@ -24,8 +24,8 @@ Status:
 - Delay full volume raymarching until the simulation contracts are stable.
 
 Status:
-- The `eframe` / `egui` viewer is implemented with play/pause/step controls, backend switching, periodic food seeding, a true orbitable `wgpu` raymarched viewport, and retained XY/XZ/YZ plus MIP inspection modes.
-- The next viewer upgrade should focus on interaction quality: scrubbing, presets, seeded structures, better transfer-function tooling, and tighter coupling to future GPU-native simulation textures.
+- The `eframe` / `egui` viewer is implemented with play/pause/step controls, backend switching, periodic food seeding, multiple kernel families, a live kernel preview, a true orbitable `wgpu` raymarched viewport, and retained XY/XZ/YZ plus MIP inspection modes.
+- The next viewer upgrade should focus on interaction quality: seeded structures, direct 3D painting tools, better transfer-function tooling, and tighter coupling to future GPU-native simulation textures.
 
 ## Phase 4: GPU Backend
 

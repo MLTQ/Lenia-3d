@@ -1,4 +1,5 @@
 mod app;
+mod kernel_preview;
 mod render;
 mod viewport3d;
 mod volume_wgpu;

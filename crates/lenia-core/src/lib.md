@@ -24,9 +24,10 @@ Defines the public surface of the `lenia-core` crate. It keeps the crate root sm
 
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
-| Future viewer crate | Stable access to `World3D`, `LeniaParams`, backend types, and seeding helpers | Renaming or removing re-exports |
+| Future viewer crate | Stable access to `World3D`, `LeniaParams`, `KernelMode`, backend types, and seeding helpers | Renaming or removing re-exports |
 | Future FFT/GPU backends | Shared `Real` alias and parameter model | Changing scalar alias semantics or parameter fields |
 
 ## Notes
 - Keep this file thin. New functionality should usually land in a focused module with its own companion doc.
 - The core now exposes a reusable 3D blob-stamping helper so viewers and preset systems can seed structure without reimplementing local world writes.
+- The crate root now also re-exports `KernelMode` so UI code can switch kernel families without importing `params` directly.

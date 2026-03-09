@@ -1,15 +1,16 @@
+use crate::kernel_preview::{draw_radial_kernel_plot, kernel_radial_profile, kernel_slice_image};
 use crate::render::{render_world_view, ViewMode};
 use crate::viewport3d::VolumeViewport;
 use crate::volume_wgpu::VolumeWgpuRenderer;
 use eframe::egui::{self, TextureHandle, TextureOptions};
 use lenia_core::{
-    stamp_gaussian_blob_3d, FftBackend, GrowthFunction, KernelShell, LeniaParams, ReferenceBackend,
-    SimulationBackend, World3D,
+    stamp_gaussian_blob_3d, FftBackend, GrowthFunction, KernelMode, KernelShell, LeniaParams,
+    ReferenceBackend, SimulationBackend, World3D,
 };
 use rand::Rng;
 
 const MIN_WORLD_SIZE: usize = 16;
-const MAX_WORLD_SIZE: usize = 96;
+const MAX_WORLD_SIZE: usize = 160;
 const DEFAULT_WORLD_SIZE: usize = 48;
 const EXTINCTION_EPSILON: f32 = 1.0e-6;
 
@@ -70,6 +71,7 @@ pub struct ViewerApp {
     frame_counter: usize,
     world_size: usize,
     texture: Option<TextureHandle>,
+    kernel_texture: Option<TextureHandle>,
     volume_viewport: VolumeViewport,
     volume_renderer: Option<VolumeWgpuRenderer>,
     food: FoodSettings,
@@ -90,6 +92,7 @@ impl ViewerApp {
             frame_counter: 0,
             world_size: DEFAULT_WORLD_SIZE,
             texture: None,
+            kernel_texture: None,
             volume_viewport: VolumeViewport::default(),
             volume_renderer: cc
                 .wgpu_render_state
@@ -104,6 +107,14 @@ impl ViewerApp {
         self.regenerate_food_sources();
         self.apply_food_sources();
         self
+    }
+
+    fn apply_centered_gaussian_preset(&mut self) {
+        self.params = LeniaParams::centered_gaussian_preset();
+    }
+
+    fn apply_gaussian_rings_preset(&mut self) {
+        self.params = LeniaParams::gaussian_rings_preset();
     }
 
     fn regenerate_food_sources(&mut self) {
@@ -221,6 +232,16 @@ impl ViewerApp {
             texture.set(image, TextureOptions::NEAREST);
         } else {
             self.texture = Some(ctx.load_texture("lenia-3d-view", image, TextureOptions::NEAREST));
+        }
+    }
+
+    fn refresh_kernel_texture(&mut self, ctx: &egui::Context) {
+        let image = kernel_slice_image(&self.params);
+        if let Some(texture) = &mut self.kernel_texture {
+            texture.set(image, TextureOptions::LINEAR);
+        } else {
+            self.kernel_texture =
+                Some(ctx.load_texture("lenia-3d-kernel", image, TextureOptions::LINEAR));
         }
     }
 
@@ -393,6 +414,30 @@ impl ViewerApp {
 
         ui.separator();
         ui.collapsing("Lenia Parameters", |ui| {
+            egui::ComboBox::from_label("kernel mode")
+                .selected_text(self.params.kernel_mode.as_str())
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut self.params.kernel_mode,
+                        KernelMode::GaussianShells,
+                        KernelMode::GaussianShells.as_str(),
+                    );
+                    ui.selectable_value(
+                        &mut self.params.kernel_mode,
+                        KernelMode::CenteredGaussian,
+                        KernelMode::CenteredGaussian.as_str(),
+                    );
+                });
+
+            ui.horizontal(|ui| {
+                if ui.button("Shell Preset").clicked() {
+                    self.apply_gaussian_rings_preset();
+                }
+                if ui.button("Gaussian Preset").clicked() {
+                    self.apply_centered_gaussian_preset();
+                }
+            });
+
             ui.add(egui::Slider::new(&mut self.params.radius_cells, 1..=16).text("radius"));
             ui.add(
                 egui::Slider::new(&mut self.params.mu, 0.0..=1.0)
@@ -432,15 +477,29 @@ impl ViewerApp {
         });
 
         ui.separator();
-        ui.collapsing("Kernel Shells", |ui| {
+        ui.collapsing("Kernel Components", |ui| {
+            ui.label(match self.params.kernel_mode {
+                KernelMode::GaussianShells => {
+                    "Shell mode uses the center/width/weight of each radial lobe."
+                }
+                KernelMode::CenteredGaussian => {
+                    "Centered Gaussian mode ignores shell centers and stacks center-aligned widths."
+                }
+            });
+
             for (index, shell) in self.params.shells.iter_mut().enumerate() {
                 ui.group(|ui| {
-                    ui.label(format!("Shell {}", index + 1));
-                    ui.add(
-                        egui::Slider::new(&mut shell.center, 0.0..=1.0)
-                            .text("center")
-                            .step_by(0.001),
-                    );
+                    ui.label(match self.params.kernel_mode {
+                        KernelMode::GaussianShells => format!("Shell {}", index + 1),
+                        KernelMode::CenteredGaussian => format!("Gaussian {}", index + 1),
+                    });
+                    if self.params.kernel_mode == KernelMode::GaussianShells {
+                        ui.add(
+                            egui::Slider::new(&mut shell.center, 0.0..=1.0)
+                                .text("center")
+                                .step_by(0.001),
+                        );
+                    }
                     ui.add(
                         egui::Slider::new(&mut shell.width, 0.01..=0.4)
                             .text("width")
@@ -469,6 +528,40 @@ impl ViewerApp {
                 }
             });
         });
+
+        ui.separator();
+        ui.heading("Kernel Preview");
+        ui.label(match self.params.kernel_mode {
+            KernelMode::GaussianShells => {
+                "Center slice heatmap and full 3D radial average for the shell-based kernel."
+            }
+            KernelMode::CenteredGaussian => {
+                "Center slice heatmap and full 3D radial average for the centered Gaussian stack."
+            }
+        });
+
+        let radial_profile = kernel_radial_profile(&self.params);
+        let wide_layout = ui.available_width() >= 280.0;
+        if wide_layout {
+            ui.horizontal(|ui| {
+                if let Some(texture) = self.kernel_texture.as_ref() {
+                    let side = 128.0_f32.min(ui.available_width() * 0.45).max(110.0);
+                    ui.add(egui::Image::new((texture.id(), egui::vec2(side, side))));
+                }
+                let plot_width = ui.available_width().max(110.0);
+                draw_radial_kernel_plot(ui, &radial_profile, egui::vec2(plot_width, 128.0));
+            });
+        } else {
+            if let Some(texture) = self.kernel_texture.as_ref() {
+                let side = ui.available_width().min(220.0).max(120.0);
+                ui.add(egui::Image::new((texture.id(), egui::vec2(side, side))));
+            }
+            draw_radial_kernel_plot(
+                ui,
+                &radial_profile,
+                egui::vec2(ui.available_width().max(120.0), 128.0),
+            );
+        }
     }
 
     fn draw_viewport(&mut self, ui: &mut egui::Ui) {
@@ -513,11 +606,14 @@ impl eframe::App for ViewerApp {
         }
 
         self.refresh_texture(ctx);
+        self.refresh_kernel_texture(ctx);
 
         egui::SidePanel::left("controls")
             .resizable(true)
             .default_width(340.0)
-            .show(ctx, |ui| self.draw_controls(ui));
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| self.draw_controls(ui));
+            });
 
         egui::CentralPanel::default()
             .frame(
@@ -580,6 +676,7 @@ mod tests {
             frame_counter: 0,
             world_size: 6,
             texture: None,
+            kernel_texture: None,
             volume_viewport: VolumeViewport::default(),
             volume_renderer: None,
             food: super::FoodSettings::default(),
@@ -616,6 +713,7 @@ mod tests {
             frame_counter: 0,
             world_size: 8,
             texture: None,
+            kernel_texture: None,
             volume_viewport: VolumeViewport::default(),
             volume_renderer: None,
             food: super::FoodSettings {
@@ -644,6 +742,7 @@ mod tests {
             frame_counter: 7,
             world_size: 8,
             texture: None,
+            kernel_texture: None,
             volume_viewport: VolumeViewport::default(),
             volume_renderer: None,
             food: super::FoodSettings {

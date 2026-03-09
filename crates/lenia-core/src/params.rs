@@ -17,6 +17,21 @@ impl GrowthFunction {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KernelMode {
+    GaussianShells,
+    CenteredGaussian,
+}
+
+impl KernelMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::GaussianShells => "GAUSSIAN_SHELLS",
+            Self::CenteredGaussian => "CENTERED_GAUSSIAN",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct KernelShell {
     pub center: Real,
@@ -36,6 +51,7 @@ impl KernelShell {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LeniaParams {
+    pub kernel_mode: KernelMode,
     pub radius_cells: usize,
     pub mu: Real,
     pub sigma: Real,
@@ -47,6 +63,7 @@ pub struct LeniaParams {
 impl Default for LeniaParams {
     fn default() -> Self {
         Self {
+            kernel_mode: KernelMode::GaussianShells,
             radius_cells: 6,
             mu: 0.35,
             sigma: 0.08,
@@ -61,6 +78,26 @@ impl Default for LeniaParams {
 }
 
 impl LeniaParams {
+    pub fn centered_gaussian_preset() -> Self {
+        Self {
+            kernel_mode: KernelMode::CenteredGaussian,
+            radius_cells: 9,
+            mu: 0.30,
+            sigma: 0.22,
+            time_step: 0.07,
+            growth_function: GrowthFunction::Exponential,
+            shells: vec![
+                KernelShell::new(0.0, 0.10, 1.0),
+                KernelShell::new(0.0, 0.22, 0.65),
+                KernelShell::new(0.0, 0.38, 0.35),
+            ],
+        }
+    }
+
+    pub fn gaussian_rings_preset() -> Self {
+        Self::default()
+    }
+
     pub fn kernel_diameter(&self) -> usize {
         self.radius_cells.saturating_mul(2).saturating_add(1)
     }
@@ -98,7 +135,7 @@ impl LeniaParams {
 
 #[cfg(test)]
 mod tests {
-    use super::{KernelShell, LeniaParams};
+    use super::{KernelMode, KernelShell, LeniaParams};
 
     #[test]
     fn normalized_shells_recover_zero_weights() {
@@ -117,5 +154,13 @@ mod tests {
         assert!(shells
             .iter()
             .all(|shell| (0.0..=1.0).contains(&shell.center)));
+    }
+
+    #[test]
+    fn centered_gaussian_preset_sets_mode() {
+        assert_eq!(
+            LeniaParams::centered_gaussian_preset().kernel_mode,
+            KernelMode::CenteredGaussian
+        );
     }
 }
