@@ -14,6 +14,11 @@ Implements the first accelerated CPU backend using FFT-based circular convolutio
 - **Interacts with**: `fft3_in_place` in this file, `convolve_periodic_reference` tests in `simulator.rs`
 - **Rationale**: This is the first practical path toward larger volumes without changing the core math.
 
+### `kernel_spectrum_for`
+- **Does**: Builds a world-shaped FFT kernel spectrum from `LeniaParams`.
+- **Interacts with**: `FftBackend`, `MultiChannelFftBackend` in `multichannel_fft.rs`
+- **Rationale**: Kernel-spectrum construction is shared by both single-channel and multichannel FFT backends.
+
 ### `embed_kernel_in_world`
 - **Does**: Places the centered discrete kernel into a world-sized circular-convolution volume.
 - **Interacts with**: `generate_kernel_3d` in `kernel.rs`
@@ -24,6 +29,8 @@ Implements the first accelerated CPU backend using FFT-based circular convolutio
 |-----------|---------|------------------|
 | Backend equivalence tests | FFT convolution matches the reference convolution on small volumes | Changing kernel embedding or FFT normalization |
 | Future GPU backend | World-shape-aware kernel caching semantics | Removing shape-sensitive cache behavior |
+| `multichannel_fft.rs` | Shared kernel-spectrum construction and convolution normalization | Changing FFT embedding or scaling |
 
 ## Notes
 - The implementation favors clarity over micro-optimization. It is a CPU scaling bridge, not the final performance endpoint.
+- `kernel_spectrum_for` is `pub(crate)` because the multichannel FFT backend shares the same spectrum-building logic without duplicating kernel embedding code.

@@ -1,7 +1,7 @@
 # kernel.rs
 
 ## Purpose
-Builds normalized 3D Lenia kernels from radial shell parameters. This file exists so kernel construction, normalization, and validation can evolve independently from the stepper.
+Builds normalized 3D Lenia kernels from the active parameter family. This file exists so exploratory kernels and the official ND banded kernel can evolve independently from the stepper while still sharing one normalization path.
 
 ## Components
 
@@ -22,13 +22,23 @@ Builds normalized 3D Lenia kernels from radial shell parameters. This file exist
 - **Does**: Builds a legacy-style kernel by stacking center-aligned Gaussians using shell widths and weights.
 - **Interacts with**: `KernelMode::CenteredGaussian` in `params.rs`
 
+### `generate_lenia_band_kernel_3d`
+- **Does**: Builds the official ND Lenia kernel by repeating weighted radial bands and shaping each band with the selected kernel core.
+- **Interacts with**: `KernelMode::LeniaBands` and `KernelCore` in `params.rs`
+
+### `kernel_core_response`
+- **Does**: Evaluates the official kernel-core basis functions used inside each ND band segment.
+- **Interacts with**: `generate_lenia_band_kernel_3d`
+
 ## Contracts
 
 | Dependent | Expects | Breaking changes |
 |-----------|---------|------------------|
 | `simulator.rs` | Kernel weights sum to `1.0` unless the kernel degenerates to a center impulse fallback | Changing normalization behavior |
 | Future FFT backend | The discrete kernel layout matches the reference backend exactly for every `KernelMode` | Reordering axes or changing radius interpretation |
+| Official species presets | `KernelMode::LeniaBands` matches the ND band semantics used by Chakazul's published 3D animals | Changing band indexing or kernel-core formulas |
 
 ## Notes
 - Shell centers are normalized by `radius_cells`, which keeps the same qualitative kernel family available at different grid resolutions.
 - `CenteredGaussian` intentionally ignores shell centers so it behaves like the old 2D centered-Gaussian family while still reusing the same parameter container.
+- `LeniaBands` follows the original ND formulation: the band list chooses coarse radial bands and `kernel_core` shapes the local response within each band before normalization.

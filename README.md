@@ -12,7 +12,8 @@ The repo now starts with a documented `lenia-core` crate:
 - backend trait with cached reference and CPU FFT implementations
 - multiple 3D kernel families, including the original centered-Gaussian-style mode and the shell/ring mode
 - reusable 3D Gaussian seeding helper for presets and food sources
-- `eframe` / `egui` viewer with a real orbitable 3D viewport using a `wgpu` volume raymarcher, periodic food seeding, kernel presets, a live kernel preview, plus slice and MIP inspection modes
+- official 3D species presets derived from Chakazul's Lenia animal data, plus an experimental multi-channel reference engine for NDKC-style work
+- `eframe` / `egui` viewer with a real orbitable 3D viewport using a `wgpu` volume raymarcher, periodic food seeding, kernel presets, species loading, a live kernel preview, plus slice and MIP inspection modes
 - tests that define correctness for future accelerated backends
 
 This first milestone is intentionally CPU-reference work. It gives the project a trustworthy baseline before introducing FFT and GPU complexity.
@@ -30,7 +31,8 @@ The viewer now starts bridging into the eventual GPU architecture by rendering t
 High-performance 3D Lenia needs the simulation core to stay independent from rendering. The viewer and the eventual GPU backend should be replaceable without changing the math contracts.
 The current core now exposes a shared backend interface, which makes the direct oracle and FFT path swappable behind one stepping API.
 The current viewer now defaults to a true 3D viewport driven by a volume shader, while retaining slice/MIP modes for debugging and inspection.
-It also now exposes the kernel as a first-class object in the UI again, with a center-slice heatmap and radial profile similar to the older 2D tool.
+It also now exposes the kernel as a first-class object in the UI again, with a center-slice heatmap and radial profile similar to the older 2D tool, and it can load official 3D animal presets. Those shipped animal seeds and parameters are credited to Chakazul's Lenia work and sourced from the published `animals3D.json` data.
+The new multi-channel engine is currently a core-only experimental path and is not yet wired into the viewer.
 
 ## Commands
 

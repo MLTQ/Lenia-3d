@@ -18,9 +18,29 @@ impl GrowthFunction {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KernelCore {
+    Polynomial,
+    Exponential,
+    Step,
+    Staircase,
+}
+
+impl KernelCore {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Polynomial => "POLYNOMIAL",
+            Self::Exponential => "EXPONENTIAL",
+            Self::Step => "STEP",
+            Self::Staircase => "STAIRCASE",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum KernelMode {
     GaussianShells,
     CenteredGaussian,
+    LeniaBands,
 }
 
 impl KernelMode {
@@ -28,6 +48,7 @@ impl KernelMode {
         match self {
             Self::GaussianShells => "GAUSSIAN_SHELLS",
             Self::CenteredGaussian => "CENTERED_GAUSSIAN",
+            Self::LeniaBands => "LENIA_BANDS",
         }
     }
 }
@@ -52,18 +73,21 @@ impl KernelShell {
 #[derive(Clone, Debug, PartialEq)]
 pub struct LeniaParams {
     pub kernel_mode: KernelMode,
+    pub kernel_core: KernelCore,
     pub radius_cells: usize,
     pub mu: Real,
     pub sigma: Real,
     pub time_step: Real,
     pub growth_function: GrowthFunction,
     pub shells: Vec<KernelShell>,
+    pub bands: Vec<Real>,
 }
 
 impl Default for LeniaParams {
     fn default() -> Self {
         Self {
             kernel_mode: KernelMode::GaussianShells,
+            kernel_core: KernelCore::Exponential,
             radius_cells: 6,
             mu: 0.35,
             sigma: 0.08,
@@ -73,6 +97,7 @@ impl Default for LeniaParams {
                 KernelShell::new(0.28, 0.10, 1.0),
                 KernelShell::new(0.62, 0.08, 0.55),
             ],
+            bands: vec![1.0],
         }
     }
 }
@@ -81,6 +106,7 @@ impl LeniaParams {
     pub fn centered_gaussian_preset() -> Self {
         Self {
             kernel_mode: KernelMode::CenteredGaussian,
+            kernel_core: KernelCore::Exponential,
             radius_cells: 9,
             mu: 0.30,
             sigma: 0.22,
@@ -91,11 +117,26 @@ impl LeniaParams {
                 KernelShell::new(0.0, 0.22, 0.65),
                 KernelShell::new(0.0, 0.38, 0.35),
             ],
+            bands: vec![1.0],
         }
     }
 
     pub fn gaussian_rings_preset() -> Self {
         Self::default()
+    }
+
+    pub fn lenia_bands_preset() -> Self {
+        Self {
+            kernel_mode: KernelMode::LeniaBands,
+            kernel_core: KernelCore::Polynomial,
+            radius_cells: 10,
+            mu: 0.15,
+            sigma: 0.016,
+            time_step: 0.1,
+            growth_function: GrowthFunction::Polynomial,
+            shells: vec![KernelShell::new(0.5, 0.15, 1.0)],
+            bands: vec![1.0, 0.75, 0.5],
+        }
     }
 
     pub fn kernel_diameter(&self) -> usize {
@@ -124,6 +165,24 @@ impl LeniaParams {
         shells
     }
 
+    pub fn normalized_bands(&self) -> Vec<Real> {
+        let mut bands = if self.bands.is_empty() {
+            vec![1.0]
+        } else {
+            self.bands.clone()
+        };
+
+        for band in &mut bands {
+            *band = band.max(0.0);
+        }
+
+        if bands.iter().all(|&band| band == 0.0) {
+            bands.fill(1.0);
+        }
+
+        bands
+    }
+
     pub fn safe_sigma(&self) -> Real {
         self.sigma.max(1.0e-4)
     }
@@ -135,7 +194,7 @@ impl LeniaParams {
 
 #[cfg(test)]
 mod tests {
-    use super::{KernelMode, KernelShell, LeniaParams};
+    use super::{KernelCore, KernelMode, KernelShell, LeniaParams};
 
     #[test]
     fn normalized_shells_recover_zero_weights() {
@@ -162,5 +221,23 @@ mod tests {
             LeniaParams::centered_gaussian_preset().kernel_mode,
             KernelMode::CenteredGaussian
         );
+    }
+
+    #[test]
+    fn lenia_bands_preset_uses_official_family() {
+        let preset = LeniaParams::lenia_bands_preset();
+        assert_eq!(preset.kernel_mode, KernelMode::LeniaBands);
+        assert_eq!(preset.kernel_core, KernelCore::Polynomial);
+    }
+
+    #[test]
+    fn normalized_bands_recover_zero_weights() {
+        let params = LeniaParams {
+            bands: vec![0.0, -1.0, 0.0],
+            ..LeniaParams::default()
+        };
+
+        let bands = params.normalized_bands();
+        assert_eq!(bands, vec![1.0, 1.0, 1.0]);
     }
 }

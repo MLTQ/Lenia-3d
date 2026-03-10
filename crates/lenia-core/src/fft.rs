@@ -43,10 +43,7 @@ impl FftBackend {
             }
         }
 
-        let kernel = generate_kernel_3d(params);
-        let mut kernel_volume = embed_kernel_in_world(world_shape, &kernel);
-        let mut planner = FftPlanner::<Real>::new();
-        fft3_in_place(&mut kernel_volume, &mut planner, FftDirection::Forward);
+        let kernel_volume = kernel_spectrum_for(world_shape, params);
 
         self.cached = Some(CachedSpectrum {
             params: params.clone(),
@@ -89,6 +86,17 @@ pub fn convolve_periodic_fft(
 
     let scale = input.len() as Real;
     volume.mapv(|value| value.re / scale)
+}
+
+pub(crate) fn kernel_spectrum_for(
+    world_shape: (usize, usize, usize),
+    params: &LeniaParams,
+) -> Array3<Complex32> {
+    let kernel = generate_kernel_3d(params);
+    let mut kernel_volume = embed_kernel_in_world(world_shape, &kernel);
+    let mut planner = FftPlanner::<Real>::new();
+    fft3_in_place(&mut kernel_volume, &mut planner, FftDirection::Forward);
+    kernel_volume
 }
 
 fn integrate_from_potential(
