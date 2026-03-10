@@ -1,6 +1,7 @@
 # Lenia-3d
 
 3D-first Lenia workspace aimed at accurate reference simulation now and scalable FFT/GPU backends next.
+<img width="1388" height="909" alt="image" src="https://github.com/user-attachments/assets/4242bcdb-1643-410b-9c49-dea674a150d0" />
 
 ## Current Status
 
