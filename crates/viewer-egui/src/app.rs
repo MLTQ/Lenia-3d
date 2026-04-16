@@ -383,6 +383,21 @@ impl ViewerApp {
                     GrowthFunction::Step.as_str(),
                 );
             });
+
+        ui.separator();
+        ui.label("MaCE — Mass-Conserving Evolution");
+        let mut mace_enabled = params.mace_beta.is_some();
+        if ui.checkbox(&mut mace_enabled, "Enable MaCE").changed() {
+            params.mace_beta = if mace_enabled { Some(2.0) } else { None };
+        }
+        if let Some(beta) = &mut params.mace_beta {
+            ui.add(
+                egui::Slider::new(beta, 0.0_f32..=20.0_f32)
+                    .text("mace_beta")
+                    .step_by(0.1),
+            );
+            ui.label("β=0: pure diffusion. Large β: mass flows toward high-growth cells. 3×3×3 neighbourhood, total mass conserved.");
+        }
     }
 
     fn draw_kernel_component_editor(ui: &mut egui::Ui, params: &mut LeniaParams) {

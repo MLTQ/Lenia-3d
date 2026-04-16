@@ -26,7 +26,7 @@ pub use params::{GrowthFunction, KernelCore, KernelMode, KernelShell, LeniaParam
 pub use reference::ReferenceBackend;
 pub use rle::{centered_scaled_world_from_rle, centered_world_from_rle, decode_lenia_rle_3d};
 pub use seed::stamp_gaussian_blob_3d;
-pub use simulator::{convolve_periodic_reference, step_reference};
+pub use simulator::{apply_mace_update_3d, convolve_periodic_reference, step_reference};
 pub use species::{
     scaled_params_for_preset, scaled_seed_shape_for_preset, seeded_world_for_preset,
     seeded_world_for_preset_scaled, single_species_presets, SingleSpeciesPreset,

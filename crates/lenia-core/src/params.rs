@@ -81,6 +81,11 @@ pub struct LeniaParams {
     pub growth_function: GrowthFunction,
     pub shells: Vec<KernelShell>,
     pub bands: Vec<Real>,
+    /// When `Some(β)`, uses MaCE (Mass-Conserving Evolution) instead of the
+    /// standard `A + G·dt` update. β is the inverse temperature controlling
+    /// diffusion vs. advection: 0 → pure diffusion, larger → mass flows toward
+    /// high-growth cells. Total mass is exactly conserved each step.
+    pub mace_beta: Option<Real>,
 }
 
 impl Default for LeniaParams {
@@ -98,6 +103,7 @@ impl Default for LeniaParams {
                 KernelShell::new(0.62, 0.08, 0.55),
             ],
             bands: vec![1.0],
+            mace_beta: None,
         }
     }
 }
@@ -118,6 +124,7 @@ impl LeniaParams {
                 KernelShell::new(0.0, 0.38, 0.35),
             ],
             bands: vec![1.0],
+            mace_beta: None,
         }
     }
 
@@ -136,6 +143,7 @@ impl LeniaParams {
             growth_function: GrowthFunction::Polynomial,
             shells: vec![KernelShell::new(0.5, 0.15, 1.0)],
             bands: vec![1.0, 0.75, 0.5],
+            mace_beta: None,
         }
     }
 

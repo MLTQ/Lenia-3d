@@ -68,13 +68,82 @@ pub fn integrate_from_potential(
         params.safe_sigma(),
         params.growth_function,
     );
-    let mut next = Array3::zeros(world.shape());
-    Zip::from(&mut next)
-        .and(world.view())
-        .and(&growth)
-        .for_each(|next_value, &current_value, &growth_value| {
-            *next_value = (current_value + growth_value * params.safe_time_step()).clamp(0.0, 1.0);
-        });
+
+    if let Some(beta) = params.mace_beta {
+        apply_mace_update_3d(world, &growth, beta)
+    } else {
+        let mut next = Array3::zeros(world.shape());
+        Zip::from(&mut next)
+            .and(world.view())
+            .and(&growth)
+            .for_each(|next_value, &current_value, &growth_value| {
+                *next_value =
+                    (current_value + growth_value * params.safe_time_step()).clamp(0.0, 1.0);
+            });
+        World3D::from_array(next)
+    }
+}
+
+/// Apply one MaCE (Mass-Conserving Evolution) step in 3D.
+///
+/// Uses growth values as the affinity field over the 3×3×3 Moore neighbourhood.
+/// Total mass (sum of all cell values) is exactly conserved each step.
+///
+/// Algorithm (Papadopoulos & Guichard 2025, Eq. 2-3, extended to 3D):
+///   Z[z,y,x]     = Σ_{(dz,dy,dx) ∈ {-1,0,1}³} exp(β · A[z+dz, y+dy, x+dx])
+///   ρ_new[z,y,x] = Σ_{(z',y',x') ∈ N(z,y,x)} exp(β · A[z,y,x]) / Z[z',y',x'] · ρ[z',y',x']
+///
+/// β = 0 → pure diffusion; larger β → mass concentrates at high-growth sites.
+pub fn apply_mace_update_3d(
+    rho: &World3D,
+    affinity: &Array3<Real>,
+    beta: Real,
+) -> World3D {
+    let (depth, height, width) = rho.shape();
+
+    // Step 1: Z[z,y,x] = Σ_{3×3×3 neighbourhood} exp(β · A[neighbour])
+    let mut z_field = Array3::<Real>::zeros((depth, height, width));
+    for z in 0..depth {
+        for y in 0..height {
+            for x in 0..width {
+                let mut sum = 0.0_f32;
+                for dz in -1isize..=1 {
+                    for dy in -1isize..=1 {
+                        for dx in -1isize..=1 {
+                            let nz = wrap_index(z as isize + dz, depth);
+                            let ny = wrap_index(y as isize + dy, height);
+                            let nx = wrap_index(x as isize + dx, width);
+                            sum += (beta * affinity[(nz, ny, nx)]).exp();
+                        }
+                    }
+                }
+                z_field[(z, y, x)] = sum.max(f32::EPSILON);
+            }
+        }
+    }
+
+    // Step 2: redistribute mass.
+    // ρ_new[z,y,x] = Σ_{(z',y',x') ∈ N(z,y,x)}  exp(β·A[z,y,x]) / Z[z',y',x']  · ρ[z',y',x']
+    let mut next = Array3::<Real>::zeros((depth, height, width));
+    for z in 0..depth {
+        for y in 0..height {
+            for x in 0..width {
+                let exp_a = (beta * affinity[(z, y, x)]).exp();
+                let mut acc = 0.0_f32;
+                for dz in -1isize..=1 {
+                    for dy in -1isize..=1 {
+                        for dx in -1isize..=1 {
+                            let nz = wrap_index(z as isize + dz, depth);
+                            let ny = wrap_index(y as isize + dy, height);
+                            let nx = wrap_index(x as isize + dx, width);
+                            acc += exp_a / z_field[(nz, ny, nx)] * rho.get(nz, ny, nx);
+                        }
+                    }
+                }
+                next[(z, y, x)] = acc;
+            }
+        }
+    }
 
     World3D::from_array(next)
 }

@@ -72,6 +72,7 @@ impl MultiChannelParams {
                             KernelShell::new(0.47, 0.07, 0.55),
                         ],
                         bands: vec![1.0],
+                        mace_beta: None,
                     },
                 },
                 KernelRule {
@@ -91,6 +92,7 @@ impl MultiChannelParams {
                             KernelShell::new(0.0, 0.18, 0.70),
                         ],
                         bands: vec![1.0],
+                        mace_beta: None,
                     },
                 },
                 KernelRule {
@@ -110,6 +112,7 @@ impl MultiChannelParams {
                             KernelShell::new(0.58, 0.08, 0.45),
                         ],
                         bands: vec![1.0],
+                        mace_beta: None,
                     },
                 },
                 KernelRule {
@@ -126,6 +129,7 @@ impl MultiChannelParams {
                         growth_function: crate::GrowthFunction::Exponential,
                         shells: vec![KernelShell::new(0.0, 0.12, 1.0)],
                         bands: vec![1.0],
+                        mace_beta: None,
                     },
                 },
             ],

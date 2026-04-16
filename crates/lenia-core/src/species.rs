@@ -131,6 +131,7 @@ fn official_lenia_params(
         growth_function: growth_from_official_index(growth_index),
         shells: vec![],
         bands: parse_fraction_list(bands),
+        mace_beta: None,
     }
 }
 

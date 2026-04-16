@@ -111,15 +111,19 @@ fn integrate_from_potential(
         params.growth_function,
     );
 
-    let mut next = Array3::zeros(world.shape());
-    Zip::from(&mut next)
-        .and(world.view())
-        .and(&growth)
-        .for_each(|next_value, &current_value, &growth_value| {
-            *next_value = (current_value + growth_value * params.safe_time_step()).clamp(0.0, 1.0);
-        });
-
-    World3D::from_array(next)
+    if let Some(beta) = params.mace_beta {
+        crate::simulator::apply_mace_update_3d(world, &growth, beta)
+    } else {
+        let mut next = Array3::zeros(world.shape());
+        Zip::from(&mut next)
+            .and(world.view())
+            .and(&growth)
+            .for_each(|next_value, &current_value, &growth_value| {
+                *next_value =
+                    (current_value + growth_value * params.safe_time_step()).clamp(0.0, 1.0);
+            });
+        World3D::from_array(next)
+    }
 }
 
 fn embed_kernel_in_world(
